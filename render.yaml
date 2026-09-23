@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: credit-coin
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: COIN_NAME
+        value: Credit
+      - key: COIN_SYMBOL
+        value: CRD
