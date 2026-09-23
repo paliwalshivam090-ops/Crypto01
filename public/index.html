@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Credit — 1 CRD = $4</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef1ee;--surface:#fbfcfb;--ink:#10261f;--mute:#55675f;--line:#c8d1cb;--brass:#b8862b;--ok:#1f7a4d;--bad:#b3261e}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1a15;--surface:#142720;--ink:#e8efe9;--mute:#93a79c;--line:#284237;--brass:#e0b04e;--ok:#5fd39a;--bad:#ff8a80}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.5 "Bricolage Grotesque",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+main{max-width:640px;margin:0 auto;padding:20px 16px 60px}
+.rate{padding:28px 0 20px;border-bottom:2px solid var(--ink)}
+.rate small{color:var(--mute);font-size:14px}
+.rate h1{margin:4px 0 0;font-size:clamp(40px,12vw,68px);line-height:1;font-weight:800;letter-spacing:-.03em}
+.rate h1 span{color:var(--brass)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}
+.stats b{display:block;font-size:20px}.stats span{font-size:13px;color:var(--mute)}
+section{padding:22px 0;border-bottom:1px solid var(--line)}
+h2{margin:0 0 12px;font-size:20px;font-weight:600}
+label{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px}
+input{width:100%;padding:12px;font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px}
+input:focus,button:focus-visible{outline:2px solid var(--brass);outline-offset:1px}
+.row{display:flex;gap:8px}.row>*{flex:1}
+button{margin-top:12px;padding:12px 16px;font:600 16px inherit;font-family:inherit;color:var(--bg);background:var(--ink);border:0;border-radius:6px;cursor:pointer}
+button.alt{background:transparent;color:var(--ink);border:1px solid var(--ink)}
+.bal{font-size:36px;font-weight:800;letter-spacing:-.02em}.bal small{font-size:16px;font-weight:400;color:var(--mute)}
+.addr{word-break:break-all;font-size:14px;color:var(--mute)}
+.msg{min-height:22px;margin-top:10px;font-size:14px}.msg.ok{color:var(--ok)}.msg.bad{color:var(--bad)}
+.key{margin-top:10px;padding:10px;border:1px dashed var(--brass);border-radius:6px;font-size:14px;word-break:break-all}
+.blk{padding:10px 0;border-top:1px solid var(--line);font-size:14px}.blk:first-child{border-top:0}
+.blk em{font-style:normal;color:var(--mute);word-break:break-all}
+.hide{display:none}
+</style>
+</head>
+<body>
+<main>
+  <div class="rate">
+    <small id="name">Credit (CRD)</small>
+    <h1>1 CRD <span>=</span> $<span id="price" style="color:inherit">4.00</span></h1>
+  </div>
+  <div class="stats">
+    <div><b id="supply">0</b><span>credits in circulation</span></div>
+    <div><b id="cap">$0</b><span>total value</span></div>
+    <div><b id="height">1</b><span>blocks</span></div>
+  </div>
+
+  <section id="noWallet">
+    <h2>Create your wallet</h2>
+    <button id="create">Create wallet</button>
+    <div id="newKey" class="key hide"></div>
+    <label>Or open an existing wallet</label>
+    <input id="impAddr" placeholder="Wallet address" autocomplete="off">
+    <input id="impSecret" placeholder="Secret key" autocomplete="off" style="margin-top:8px">
+    <button class="alt" id="open">Open wallet</button>
+  </section>
+
+  <section id="wallet" class="hide">
+    <h2>Your balance</h2>
+    <div class="bal"><span id="bal">0</span> CRD <small>≈ $<span id="usd">0.00</span></small></div>
+    <div class="addr" id="myAddr"></div>
+    <button class="alt" id="logout">Close wallet</button>
+  </section>
+
+  <section class="hide" id="tools">
+    <h2>Buy credits</h2>
+    <label>Dollars to spend (demo purchase)</label>
+    <input id="buyUsd" type="number" min="0" step="any" placeholder="40">
+    <div class="addr" id="buyPreview">You get 0 CRD</div>
+    <button id="buy">Buy credits</button>
+    <div class="msg" id="m1"></div>
+  </section>
+
+  <section class="hide" id="sendBox">
+    <h2>Send credits</h2>
+    <label>Recipient address</label><input id="to" autocomplete="off">
+    <label>Amount (CRD)</label><input id="amt" type="number" min="0" step="any">
+    <button id="send">Send credits</button>
+    <div class="msg" id="m2"></div>
+  </section>
+
+  <section class="hide" id="mineBox">
+    <h2>Mine a block</h2>
+    <div class="addr">Confirms pending transfers and pays you 1 CRD.</div>
+    <button id="mine">Mine block</button>
+    <div class="msg" id="m3"></div>
+  </section>
+
+  <section>
+    <h2>Latest blocks</h2>
+    <div id="chain"></div>
+  </section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const api=(p,b)=>fetch('/api/'+p,b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:{}).then(r=>r.json());
+const store={get:k=>{try{return localStorage.getItem(k)}catch{return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch{}},del:k=>{try{localStorage.removeItem(k)}catch{}}};
+let W={address:store.get('addr'),secret:store.get('sec')};
+const say=(id,t,ok)=>{const e=$(id);e.textContent=t;e.className='msg '+(ok?'ok':'bad')};
+const fmt=n=>Number(n).toLocaleString(undefined,{maximumFractionDigits:6});
+let PRICE=4;
+
+async function refresh(){
+  const i=await api('info'); PRICE=i.priceUsd;
+  $('name').textContent=i.name+' ('+i.symbol+')';
+  $('price').textContent=i.priceUsd.toFixed(2);
+  $('supply').textContent=fmt(i.supply);
+  $('cap').textContent='$'+fmt(i.marketCapUsd);
+  $('height').textContent=i.height;
+  const c=await api('chain');
+  $('chain').innerHTML=c.map(b=>`<div class="blk"><b>Block ${b.index}</b> · ${b.txs.length} transfer${b.txs.length==1?'':'s'}<br><em>${b.hash.slice(0,32)}…</em></div>`).join('');
+  if(W.address){const b=await api('balance/'+W.address);
+    if(b.error){logout();return}
+    $('bal').textContent=fmt(b.balance);$('usd').textContent=b.usd.toFixed(2)}
+}
+function view(){
+  const on=!!W.address;
+  ['wallet','tools','sendBox','mineBox'].forEach(id=>$(id).classList.toggle('hide',!on));
+  $('noWallet').classList.toggle('hide',on);
+  if(on)$('myAddr').textContent=W.address;
+}
+function login(a,s){W={address:a,secret:s};store.set('addr',a);store.set('sec',s);view();refresh()}
+function logout(){W={};store.del('addr');store.del('sec');view()}
+
+$('create').onclick=async()=>{const w=await api('wallet',{});
+  $('newKey').classList.remove('hide');
+  $('newKey').innerHTML='Save your secret key now. It is shown once.<br><b>Address:</b> '+w.address+'<br><b>Secret:</b> '+w.secret;
+  login(w.address,w.secret);$('noWallet').classList.remove('hide')};
+$('open').onclick=async()=>{const a=$('impAddr').value.trim(),s=$('impSecret').value.trim();
+  const b=await api('balance/'+a); if(b.error){alert(b.error);return} login(a,s)};
+$('logout').onclick=logout;
+$('buyUsd').oninput=e=>$('buyPreview').textContent='You get '+fmt((Number(e.target.value)||0)/PRICE)+' CRD';
+$('buy').onclick=async()=>{const r=await api('buy',{address:W.address,usd:$('buyUsd').value});
+  r.error?say('m1',r.error):say('m1','Bought '+fmt(r.credits)+' CRD in block '+r.block,1);refresh()};
+$('send').onclick=async()=>{const r=await api('send',{from:W.address,secret:W.secret,to:$('to').value.trim(),amount:$('amt').value});
+  r.error?say('m2',r.error):say('m2',r.message,1);refresh()};
+$('mine').onclick=async()=>{say('m3','Mining…',1);const r=await api('mine',{address:W.address});
+  r.error?say('m3',r.error):say('m3','Block '+r.block+' mined. +'+r.reward+' CRD',1);refresh()};
+
+view();refresh();setInterval(refresh,8000);
+</script>
+</body>
+                       </html>
